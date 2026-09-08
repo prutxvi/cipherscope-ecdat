@@ -1,4 +1,27 @@
 
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* shadcn-compatible theme tokens mapped to the CipherScope palette */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-primary: var(--quantum);
+  --color-primary-foreground: #0b0f17;
+  --color-secondary: var(--panel-2);
+  --color-secondary-foreground: var(--text);
+  --color-accent: rgba(167, 139, 250, 0.15);
+  --color-accent-foreground: #e9d5ff;
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--quantum);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted);
+}
+
 :root {
   --bg: #070b13;
   --panel: #0d1520;

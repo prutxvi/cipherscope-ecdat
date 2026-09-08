@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { displayAlgo } from '../App.jsx'
+import { displayAlgo } from '../explainers.js'
 
 const SEV_RANK = { Critical: 0, High: 1, Medium: 2, Low: 3 }
 

@@ -1,6 +1,9 @@
 
 // ---- plain-language maps for the judge-friendly UI ----
 
+// canonical display key for grouping findings (algorithm + key size)
+export const displayAlgo = (f) => (f.key_size ? `${f.algorithm}-${f.key_size}` : f.algorithm)
+
 // What each algorithm IS, in one line
 export const ALGO_TITLE = {
   'MD5': 'Passwords hashed with MD5',

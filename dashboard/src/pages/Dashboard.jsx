@@ -1,17 +1,15 @@
 
 import { useMemo, useState } from 'react'
-import findings from './findings.json'
-import Heatmap from './components/Heatmap.jsx'
-import FindingsTable from './components/FindingsTable.jsx'
-import WorstIssues from './components/WorstIssues.jsx'
-import MoscaBar from './components/MoscaBar.jsx'
-import { categoryFriendly, GLOSSARY } from './explainers.js'
+import findings from '../findings.json'
+import Heatmap from '../components/Heatmap.jsx'
+import FindingsTable from '../components/FindingsTable.jsx'
+import WorstIssues from '../components/WorstIssues.jsx'
+import MoscaBar from '../components/MoscaBar.jsx'
+import { categoryFriendly, displayAlgo, GLOSSARY } from '../explainers.js'
 
 const SEVERITIES = ['All', 'Critical', 'High', 'Medium', 'Low']
 
-export const displayAlgo = (f) => (f.key_size ? `${f.algorithm}-${f.key_size}` : f.algorithm)
-
-export default function App() {
+export default function Dashboard({ onBack }) {
   const [showHelp, setShowHelp] = useState(false)
   const [category, setCategory] = useState('All')
   const [severity, setSeverity] = useState('All')
@@ -47,6 +45,11 @@ export default function App() {
           <span className="tagline">post-quantum security report · plain language edition</span>
         </div>
         <div className="header-right">
+          {onBack && (
+            <button className="ghost-btn" onClick={onBack}>
+              ← home
+            </button>
+          )}
           <button className="ghost-btn" onClick={() => setShowHelp((v) => !v)}>
             {showHelp ? '✕ close explainer' : '❓ what is this?'}
           </button>
