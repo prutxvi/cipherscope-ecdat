@@ -21,7 +21,7 @@
 [![code style](https://img.shields.io/badge/lint-ruff-261230)](ruff.toml)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
-[Quickstart](#-quickstart) · [How it works](#-how-it-works) · [Rule coverage](#-rule-coverage) · [SARIF](#-github-code-scanning-sarif) · [Methodology](docs/METHODOLOGY.md) · [Contributing](CONTRIBUTING.md)
+[Quickstart](#-quickstart) · [How it works](#-how-it-works) · [Rule coverage](#-rule-coverage) · [SARIF](#-github-code-scanning-sarif) · [Methodology](docs/METHODOLOGY.md) · [Competitive analysis](docs/COMPETITIVE-ANALYSIS.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
