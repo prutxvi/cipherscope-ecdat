@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CipherScope — cryptographic discovery & PQC-readiness scanner (hackathon prototype).
+CipherScope — cryptographic discovery & PQC-readiness scanner.
 
 Detects weak / quantum-vulnerable cryptography across a codebase:
   * regex rules over .py .java .js .go .c .cpp .conf .yaml .yml .sh + Dockerfile/sshd_config
@@ -10,10 +10,12 @@ Detects weak / quantum-vulnerable cryptography across a codebase:
   * PQC migration mapping (RSA->ML-KEM, ECDSA->ML-DSA, SHA-1->SHA-256, DES->AES-256-GCM ...)
 
 Usage:
-    python3 scanner.py <directory> [-o findings.json]
+    python3 scanner.py <directory> [-o findings.json] [--format json|sarif]
                        [--data-lifetime 10] [--migration-years 6] [--quantum-horizon 15]
+                       [--exclude GLOB]... [--fail-on-critical]
 
-Output: a single JSON array of findings written to findings.json.
+Output: a single JSON array of findings (default) or a SARIF 2.1.0 report
+(uploadable to GitHub code scanning) written to the output path.
 """
 
 from __future__ import annotations
@@ -25,7 +27,11 @@ import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from fnmatch import fnmatch
 from pathlib import Path
+
+__version__ = "1.0.0"
+TOOL_URI = "https://github.com/prutxvi/cipherscope-ecdat"
 
 # --------------------------------------------------------------------------- config
 
@@ -154,11 +160,13 @@ SKIP_LINE_PATTERNS = [
 # --------------------------------------------------------------------------- scanner core
 
 class Scanner:
-    def __init__(self, root: Path, data_lifetime: float, migration_years: float, quantum_horizon: float):
+    def __init__(self, root: Path, data_lifetime: float = 10, migration_years: float = 6,
+                 quantum_horizon: float = 15, exclude: list[str] | None = None):
         self.root = root
         self.data_lifetime = data_lifetime
         self.migration_years = migration_years
         self.quantum_horizon = quantum_horizon
+        self.exclude = exclude or []
         self.findings: list[dict] = []
         self._seen: set[tuple] = set()
         self.files_scanned = 0
@@ -216,6 +224,8 @@ class Scanner:
             if any(part in SKIP_DIRS for part in path.parts):
                 continue
             rel = str(path.relative_to(self.root))
+            if any(fnmatch(rel, pat) or fnmatch(path.name, pat) for pat in self.exclude):
+                continue
             ext = path.suffix.lower()
             if ext in CERT_EXTENSIONS:
                 self.files_scanned += 1
@@ -396,7 +406,7 @@ class Scanner:
         try:
             from cryptography import x509
             from cryptography.hazmat.primitives import serialization
-            from cryptography.hazmat.primitives.asymmetric import rsa, ec, dsa, ed25519
+            from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed25519, rsa
         except ImportError:
             print("warning: 'cryptography' not installed — skipping cert/key analysis "
                   "(pip install cryptography)", file=sys.stderr)
@@ -465,10 +475,15 @@ class Scanner:
         self.emit(rel, line, algo, size, f"private key {algo}-{size}")
 
     # ------------------------------------------------------------------ report
-    def report(self, out_path: Path) -> None:
+    def report(self, out_path: Path, fmt: str = "json") -> None:
         self.findings.sort(key=lambda f: (SEVERITY_RANK[f["severity"]], f["file"], f["line"]))
-        out_path.write_text(json.dumps(self.findings, indent=2) + "\n")
+        if fmt == "sarif":
+            out_path.write_text(json.dumps(self.to_sarif(), indent=2) + "\n")
+        else:
+            out_path.write_text(json.dumps(self.findings, indent=2) + "\n")
+        self.print_summary(out_path, fmt)
 
+    def print_summary(self, out_path: Path, fmt: str = "json") -> None:
         by_sev = {s: sum(1 for f in self.findings if f["severity"] == s) for s in SEVERITY_RANK}
         q = sum(1 for f in self.findings if f["quantum_vulnerable"])
         pct = round(100 * q / len(self.findings)) if self.findings else 0
@@ -482,18 +497,79 @@ class Scanner:
         mosca = "HIGH" if self.mosca_high else "low"
         print(f"  mosca check        : {self.data_lifetime}y data + {self.migration_years}y migration "
               f"vs {self.quantum_horizon}y horizon -> {mosca} quantum risk")
-        print(f"  wrote              : {out_path}")
+        print(f"  wrote              : {out_path} ({fmt})")
+
+    # ------------------------------------------------------------------ SARIF 2.1.0
+    def to_sarif(self) -> dict:
+        """SARIF 2.1.0 for GitHub code scanning upload (actions/upload-artifact compatible)."""
+        level = {"Critical": "error", "High": "error", "Medium": "warning", "Low": "note"}
+        rules: dict[str, dict] = {}
+        for f in self.findings:
+            rules.setdefault(f["algorithm"], {
+                "id": f["algorithm"],
+                "shortDescription": {"text": f"{f['algorithm']} detected ({f['category']})"},
+                "fullDescription": {"text": f["recommendation"]},
+                "help": {"text": f["recommendation"], "markdown":
+                         f"**{f['algorithm']}** — {f['recommendation']}"},
+                "properties": {
+                    "category": f["category"],
+                    "weak_today": f["weak_today"],
+                    "quantum_vulnerable": f["quantum_vulnerable"],
+                },
+            })
+        results = []
+        for f in self.findings:
+            results.append({
+                "ruleId": f["algorithm"],
+                "level": level[f["severity"]],
+                "message": {"text": f"{f['algorithm']}"
+                                    f"{'-' + str(f['key_size']) + '-bit' if f['key_size'] else ''}"
+                                    f" in {f['file']}:{f['line']} — {f['recommendation']}"},
+                "locations": [{
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": f["file"].replace("\\", "/")},
+                        "region": {"startLine": max(f["line"], 1)},
+                    }
+                }],
+                "partialFingerprints": {"cipherscope/v1": f"{f['file']}:{f['line']}:{f['algorithm']}:{f['key_size']}"},
+                "properties": {"severity": f["severity"], "weak_today": f["weak_today"],
+                               "quantum_vulnerable": f["quantum_vulnerable"]},
+            })
+        return {
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [{
+                "tool": {
+                    "driver": {
+                        "name": "CipherScope",
+                        "version": __version__,
+                        "informationUri": TOOL_URI,
+                        "rules": list(rules.values()),
+                    }
+                },
+                "results": results,
+            }],
+        }
 
 
 # --------------------------------------------------------------------------------- main
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="CipherScope crypto discovery scanner")
+    ap = argparse.ArgumentParser(
+        prog="cipherscope",
+        description="CipherScope — cryptographic discovery & PQC-readiness scanner")
     ap.add_argument("directory", help="directory to scan")
-    ap.add_argument("-o", "--output", default="findings.json", help="output JSON path (default: findings.json)")
+    ap.add_argument("-o", "--output", default="findings.json", help="output path (default: findings.json)")
+    ap.add_argument("--format", choices=["json", "sarif"], default="json",
+                    help="output format: json array or SARIF 2.1.0 (GitHub code scanning)")
     ap.add_argument("--data-lifetime", type=float, default=10, help="years data must stay secret (Mosca X)")
     ap.add_argument("--migration-years", type=float, default=6, help="years needed to migrate (Mosca Y)")
     ap.add_argument("--quantum-horizon", type=float, default=15, help="years until CRQC assumed (Mosca Z)")
+    ap.add_argument("--exclude", action="append", default=[],
+                    help="glob to skip, e.g. --exclude 'vendor/*' (repeatable)")
+    ap.add_argument("--fail-on-critical", action="store_true",
+                    help="exit 1 when any Critical finding is present (CI gate)")
+    ap.add_argument("--version", action="version", version=f"CipherScope {__version__}")
     args = ap.parse_args()
 
     root = Path(args.directory).resolve()
@@ -501,12 +577,17 @@ def main() -> int:
         print(f"error: {root} is not a directory", file=sys.stderr)
         return 2
 
-    scanner = Scanner(root, args.data_lifetime, args.migration_years, args.quantum_horizon)
+    scanner = Scanner(root, args.data_lifetime, args.migration_years, args.quantum_horizon,
+                      exclude=args.exclude)
     scanner.scan()
 
     out_path = Path(args.output).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    scanner.report(out_path)
+    scanner.report(out_path, args.format)
+
+    if args.fail_on_critical and any(f["severity"] == "Critical" for f in scanner.findings):
+        print("CI gate: Critical findings present — failing (--fail-on-critical)", file=sys.stderr)
+        return 1
     return 0
 
 

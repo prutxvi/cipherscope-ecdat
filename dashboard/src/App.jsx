@@ -50,6 +50,19 @@ export default function App() {
         <div className="header-right mono">
           <span className="prompt">$</span> cipherscope --scan demo-repo
           <span className="cursor">▊</span>
+          <button
+            className="export-btn"
+            onClick={() => {
+              const blob = new Blob([JSON.stringify(findings, null, 2)], { type: 'application/json' })
+              const a = document.createElement('a')
+              a.href = URL.createObjectURL(blob)
+              a.download = 'cipherscope-findings.json'
+              a.click()
+              URL.revokeObjectURL(a.href)
+            }}
+          >
+            ⬇ export report
+          </button>
         </div>
       </header>
 

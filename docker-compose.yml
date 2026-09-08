@@ -1,0 +1,9 @@
+version: "3.8"
+
+# one-command demo: docker compose up --build → http://localhost:8080
+services:
+  dashboard:
+    build: ./dashboard
+    ports:
+      - "8080:80"
+    restart: unless-stopped
