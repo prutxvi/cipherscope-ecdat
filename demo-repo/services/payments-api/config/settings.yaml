@@ -1,0 +1,14 @@
+# payments-api runtime settings — managed by puppet, do not hand-edit
+payments:
+  tls:
+    min_version: TLSv1.1
+    ciphers: "DES-EDE3-CBC:AES128-SHA:RC4-SHA"
+  session:
+    hash: SHA-1
+    cookie_name: acme_sess
+  audit:
+    digest: SHA-256
+    retention_years: 10
+  partner_gateway:
+    key_bits: 1024
+    mode: ECB

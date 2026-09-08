@@ -1,0 +1,27 @@
+version: "2.1"
+
+services:
+  payments-api:
+    build: .
+    ports: ["8000:8000"]
+    volumes:
+      - ./infra/certs:/opt/certs:ro
+    environment:
+      - ACME_TLS_MIN=TLSv1.1
+
+  user-service:
+    image: openjdk:8-jre-alpine
+    ports: ["8080:8080"]
+    volumes:
+      - ./infra/certs:/opt/certs:ro
+
+  edge-gateway:
+    build: ./services/edge-gateway
+    ports: ["9000:9000"]
+
+  nginx:
+    image: nginx:1.14
+    ports: ["443:443", "8443:8443"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/certs:/etc/nginx/certs:ro

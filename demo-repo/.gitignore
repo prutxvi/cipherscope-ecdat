@@ -1,0 +1,24 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# java
+target/
+*.class
+
+# go
+edge-gateway
+
+# node
+node_modules/
+
+# secrets & certs — never commit real keys
+*.pem
+*.key
+!infra/certs/*.key
+
+# misc
+.DS_Store
+*.log

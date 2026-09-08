@@ -1,0 +1,10 @@
+# ACME Corp bastion sshd — last reviewed 2016, frozen until vendor patch window
+Port 22
+Protocol 2
+PermitRootLogin yes
+PasswordAuthentication yes
+
+# legacy cipher set — the 2013 audit appliance cannot parse modern ciphers
+Ciphers aes128-cbc,3des-cbc,arcfour,aes128-ctr
+MACs hmac-sha1,hmac-sha1-96,hmac-md5
+KexAlgorithms diffie-hellman-group1-sha1,diffie-hellman-group14-sha1

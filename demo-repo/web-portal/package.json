@@ -1,0 +1,14 @@
+{
+  "name": "acme-web-portal",
+  "version": "1.4.2",
+  "private": true,
+  "description": "ACME Corp customer portal",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "4.17.1",
+    "node-fetch": "2.6.1"
+  }
+}
